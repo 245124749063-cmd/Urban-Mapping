@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Urban Parcel AI</title>
+
+  <!-- Main stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Font Awesome icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  >
+</head>
+
+<body>
+
+  <div class="app-container">
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar">
+
+      <!-- Brand -->
+      <div class="brand">
+
+        <div class="brand-icon">
+          <i class="fa-solid fa-map-location-dot"></i>
+        </div>
+
+        <div class="brand-text">
+          <h2>Urban Parcel AI</h2>
+          <span>AI-Assisted Urban Mapping</span>
+        </div>
+
+      </div>
+
+
+      <!-- Navigation -->
+      <nav class="nav-menu">
+
+        <a href="#" class="nav-item active">
+          <i class="fa-solid fa-house"></i>
+          <span>Dashboard</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <span>Upload & Analyze</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fa-solid fa-chart-simple"></i>
+          <span>Results</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fa-solid fa-map"></i>
+          <span>Map View</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fa-solid fa-square-check"></i>
+          <span>Validation</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fa-solid fa-download"></i>
+          <span>Export</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>History</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>About</span>
+        </a>
+
+      </nav>
+
+
+      <!-- Sidebar bottom -->
+      <div class="sidebar-footer">
+
+        <div class="footer-graphic"></div>
+
+        <div class="footer-card">
+
+          <h4>Urban Parcel AI</h4>
+
+          <p>
+            Turning aerial images into accurate
+            cadastral maps
+          </p>
+
+          <span class="copyright">
+            © 2026 Urban Parcel AI
+          </span>
+
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN CONTENT
+    ====================================================== -->
+
+    <main class="main-content">
+
+
+      <!-- =================================================
+           HERO / HEADER
+      ================================================== -->
+
+      <header class="top-header">
+
+        <div class="header-overlay"></div>
+
+        <div class="header-left">
+
+          <div class="welcome-label">
+            <span class="pulse-dot"></span>
+            AI-Powered Geospatial Intelligence
+          </div>
+
+          <h1>
+            Welcome to
+            <span>Urban Parcel AI</span>
+          </h1>
+
+          <h3>
+            AI-Assisted Automated Urban Parcel Mapping
+          </h3>
+
+          <p>
+            Upload an aerial or drone image and let our
+            AI extract buildings, roads, and parcel boundaries.
+          </p>
+
+        </div>
+
+
+        <div class="header-right">
+
+          <div class="status-badge">
+            <span class="dot"></span>
+            AI Model: Ready
+          </div>
+
+          <button class="icon-btn" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <i class="fa-regular fa-sun"></i>
+          </button>
+
+        </div>
+
+      </header>
+
+
+      <!-- =================================================
+           UPLOAD SECTION
+      ================================================== -->
+
+      <section class="upload-section" id="upload">
+
+        <div class="upload-header">
+
+          <div class="upload-title-icon">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+
+          <div>
+
+            <h3>Upload Aerial Image</h3>
+
+            <p>
+              Upload a high-resolution aerial or drone image
+              to begin analysis.
+            </p>
+
+          </div>
+
+          <div class="drop-zone" id="dropZone">
+
+            <i class="fa-solid fa-cloud-arrow-up cloud-icon"></i>
+            <strong class="drop-title">Drag and drop an image here</strong>
+            <span class="or-text">or</span>
+            <label class="browse-btn" for="imageInput">
+              <i class="fa-solid fa-folder-open"></i>
+              Browse image
+            </label>
+            <input id="imageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+            <span class="file-limits">JPG, PNG, or WEBP up to 20 MB</span>
+
+          </div>
+
+          <div class="image-preview-container" id="previewContainer" aria-live="polite">
+            <img id="imagePreview" alt="Selected aerial image preview">
+            <div class="preview-info">
+              <span id="fileName"></span>
+              <span id="fileSize"></span>
+            </div>
+            <button class="remove-image" id="removeImage" type="button" title="Remove image" aria-label="Remove image">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <div class="action-area">
+            <button class="analyze-btn" id="analyzeButton" type="button" disabled>
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              Analyze image
+            </button>
+            <span class="sub-text" id="analysisStatus">Select an image to enable analysis</span>
+          </div>
+
+        </section>
+
+        <section class="modules-section">
+          <div class="section-title">
+            <div>
+              <h3>Mapping modules</h3>
+              <p class="section-description">Core capabilities available in the analysis pipeline</p>
+            </div>
+            <a href="#upload" id="viewAllModules">View all <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+
+          <div class="modules-grid">
+            <article class="module-card">
+              <span class="mod-num">01</span>
+              <div class="mod-header"><span class="mod-icon green"><i class="fa-solid fa-building"></i></span><h4>Building Detection</h4></div>
+              <p>Identify building footprints from aerial imagery.</p>
+              <span class="module-status"><span></span>Ready</span>
+            </article>
+            <article class="module-card">
+              <span class="mod-num">02</span>
+              <div class="mod-header"><span class="mod-icon blue"><i class="fa-solid fa-road"></i></span><h4>Road Extraction</h4></div>
+              <p>Trace roads and transport networks automatically.</p>
+              <span class="module-status"><span></span>Ready</span>
+            </article>
+            <article class="module-card">
+              <span class="mod-num">03</span>
+              <div class="mod-header"><span class="mod-icon purple"><i class="fa-solid fa-draw-polygon"></i></span><h4>Parcel Boundaries</h4></div>
+              <p>Generate clean cadastral parcel boundaries.</p>
+              <span class="module-status"><span></span>Ready</span>
+            </article>
+            <article class="module-card">
+              <span class="mod-num">04</span>
+              <div class="mod-header"><span class="mod-icon orange"><i class="fa-solid fa-shield-halved"></i></span><h4>Validation</h4></div>
+              <p>Review confidence and validate extracted features.</p>
+              <span class="module-status"><span></span>Ready</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="bottom-grid">
+          <article class="grid-card">
+            <div class="card-heading">
+              <div><h3><i class="fa-solid fa-map"></i> Map preview</h3><span>Results appear here after analysis</span></div>
+              <button class="small-icon-btn" type="button" title="Refresh map" aria-label="Refresh map"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+            <div class="map-placeholder"><div class="map-grid-lines"></div><div class="map-center-icon"><i class="fa-solid fa-location-crosshairs"></i></div><strong class="bold">No map data yet</strong><span class="sub">Upload an image to generate a preview</span></div>
+          </article>
+
+          <article class="grid-card">
+            <div class="card-heading"><div><h3><i class="fa-solid fa-chart-pie"></i> Workspace summary</h3><span>Current session</span></div></div>
+            <div class="summary-list">
+              <div class="summary-item"><span class="label"><i class="fa-solid fa-file-image"></i> Images processed</span><span class="value" id="imagesProcessed">0</span></div>
+              <div class="summary-item"><span class="label"><i class="fa-solid fa-building green"></i> Buildings found</span><span class="value">--</span></div>
+              <div class="summary-item"><span class="label"><i class="fa-solid fa-road"></i> Roads extracted</span><span class="value">--</span></div>
+              <div class="summary-item"><span class="label"><i class="fa-solid fa-percent"></i> Average confidence</span><span class="value">--</span></div>
+            </div>
+          </article>
+
+          <article class="grid-card info-card">
+            <div class="bulb-icon"><i class="fa-regular fa-lightbulb"></i></div>
+            <h4>Ready to map your city?</h4>
+            <p>Start with a clear, top-down aerial image for the best extraction results.</p>
+            <div class="process-mini"><span><i class="fa-solid fa-upload"></i> Upload</span><i class="fa-solid fa-arrow-right"></i><span><i class="fa-solid fa-wand-magic-sparkles"></i> Analyze</span></div>
+          </article>
+        </section>
+
+        <footer class="main-footer">
+          <span><strong>Urban Parcel AI</strong> AI-Assisted Urban Mapping</span>
+          <span>System operational <span class="footer-dot">•</span> v1.0.0</span>
+        </footer>
+
+      </main>
+    </div>
+
+    <script>
+      const imageInput = document.getElementById('imageInput');
+      const dropZone = document.getElementById('dropZone');
+      const previewContainer = document.getElementById('previewContainer');
+      const imagePreview = document.getElementById('imagePreview');
+      const fileName = document.getElementById('fileName');
+      const fileSize = document.getElementById('fileSize');
+      const analyzeButton = document.getElementById('analyzeButton');
+      const analysisStatus = document.getElementById('analysisStatus');
+      let selectedFile;
+
+      function selectImage(file) {
+        if (!file || !file.type.startsWith('image/')) {
+          analysisStatus.textContent = 'Please choose a JPG, PNG, or WEBP image';
+          return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          analysisStatus.textContent = 'Image must be smaller than 20 MB';
+          return;
+        }
+
+        selectedFile = file;
+        imagePreview.src = URL.createObjectURL(file);
+        fileName.textContent = file.name;
+        fileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+        previewContainer.classList.add('show');
+        analyzeButton.disabled = false;
+        analysisStatus.textContent = 'Image ready for analysis';
+      }
+
+      imageInput.addEventListener('change', () => selectImage(imageInput.files[0]));
+      ['dragenter', 'dragover'].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.add('drag-over');
+      }));
+      ['dragleave', 'drop'].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('drag-over');
+      }));
+      dropZone.addEventListener('drop', (event) => selectImage(event.dataTransfer.files[0]));
+
+      document.getElementById('removeImage').addEventListener('click', () => {
+        selectedFile = undefined;
+        imageInput.value = '';
+        imagePreview.removeAttribute('src');
+        previewContainer.classList.remove('show');
+        analyzeButton.disabled = true;
+        analysisStatus.textContent = 'Select an image to enable analysis';
+      });
+
+      analyzeButton.addEventListener('click', () => {
+        if (!selectedFile) return;
+        analyzeButton.disabled = true;
+        analysisStatus.textContent = 'Analyzing image...';
+        window.setTimeout(() => {
+          document.getElementById('imagesProcessed').textContent = '1';
+          analysisStatus.textContent = 'Analysis complete. Results are ready to review.';
+          analyzeButton.disabled = false;
+        }, 900);
+      });
+
+      document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', (event) => {
+        event.preventDefault();
+        document.querySelector('.nav-item.active').classList.remove('active');
+        item.classList.add('active');
+      }));
+
+      document.getElementById('themeToggle').addEventListener('click', () => {
+        document.body.classList.toggle('light-theme');
+        document.querySelector('#themeToggle i').className = document.body.classList.contains('light-theme')
+          ? 'fa-regular fa-moon'
+          : 'fa-regular fa-sun';
+      });
+    </script>
+
+  </body>
+  </html>
+
+          </div>
