@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELARA | Next-Gen AI Cadastral & Urban Parcel Mapping</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#07090e',
+                            card: 'rgba(15, 23, 42, 0.75)',
+                            border: 'rgba(255, 255, 255, 0.1)',
+                            accent: '#00f2fe',
+                            green: '#10b981',
+                            purple: '#7c3aed',
+                            yellow: '#f59e0b',
+                            red: '#ef4444'
+                        }
+                    },
+                    boxShadow: {
+                        'neon-cyan': '0 0 15px rgba(0, 242, 254, 0.3)',
+                        'neon-purple': '0 0 15px rgba(124, 58, 237, 0.3)',
+                        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #05070c;
+            color: #f8fafc;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(13, 18, 30, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-panel-interactive:hover {
+            border-color: rgba(0, 242, 254, 0.4);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.15);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #07090e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f2fe;
+        }
+
+        /* Scanline AI effect */
+        .scanline {
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #00f2fe, transparent);
+            position: absolute;
+            top: 0;
+            z-index: 20;
+            animation: scan 3s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: 0%; opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { top: 100%; opacity: 0.8; }
+        }
+
+        .leaflet-container {
+            background: #090d16 !important;
+        }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="h-16 glass-panel border-b border-slate-800 px-6 flex items-center justify-between z-50 relative shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center shadow-neon-cyan">
+                <i data-lucide="layers" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-xl tracking-wider text-white">ELARA</span>
+                    <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-widest">SIH26012</span>
+                </div>
+                <p class="text-[11px] text-slate-400">AI Cadastral Feature Extraction Engine</p>
+            </div>
+        </div>
+
+        <nav class="hidden lg:flex items-center space-x-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 text-cyan-400 bg-cyan-950/40 border border-cyan-500/30">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+            </button>
+            <button onclick="switchTab('upload')" id="nav-upload" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload & Process
+            </button>
+            <button onclick="switchTab('map')" id="nav-map" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+                <i data-lucide="map" class="w-4 h-4"></i> Interactive GIS Map
+            </button>
+            <button onclick="switchTab('validation')" id="nav-validation" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+                <i data-lucide="shield-alert" class="w-4 h-4"></i> Topology & QC
+            </button>
+            <button onclick="switchTab('export')" id="nav-export" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+                <i data-lucide="download" class="w-4 h-4"></i> Export GIS
+            </button>
+        </nav>
+
+        <div class="flex items-center space-x-4">
+            <div class="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span class="relative flex h-2.5 w-2.5">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span class="text-xs text-slate-300 font-mono">GPU AI Engine: READY</span>
+            </div>
+
+            <button onclick="triggerNotification('Platform Synced with NIC National Cadastral Database', 'info')" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition">
+                <i data-lucide="bell" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-xs">
+                    GIS
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden relative">
+        
+        <section id="tab-dashboard" class="h-full overflow-y-auto p-6 space-y-6">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-cyan-500/10 rounded-full blur-xl group-hover:bg-cyan-500/20 transition"></div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Mapped Parcels</p>
+                            <h3 id="dash-parcels" class="text-3xl font-extrabold text-white mt-1 font-mono">0</h3>
+                            <span class="inline-flex items-center gap-1 text-[11px] text-emerald-400 mt-2 font-medium">
+                                <i data-lucide="trending-up" class="w-3 h-3"></i> +14% vs traditional manual
+                            </span>
+                        </div>
+                        <div class="p-3 bg-cyan-500/10 rounded-xl text-cyan-400 border border-cyan-500/20">
+                            <i data-lucide="vector-square" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition"></div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Extracted Buildings</p>
+                            <h3 id="dash-buildings" class="text-3xl font-extrabold text-white mt-1 font-mono">0</h3>
+                            <span class="inline-flex items-center gap-1 text-[11px] text-purple-400 mt-2 font-medium">
+                                <i data-lucide="check-circle-2" class="w-3 h-3"></i> Live model result
+                            </span>
+                        </div>
+                        <div class="p-3 bg-purple-500/10 rounded-xl text-purple-400 border border-purple-500/20">
+                            <i data-lucide="building-2" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition"></div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Mapped Road Network</p>
+                            <h3 id="dash-roads" class="text-3xl font-extrabold text-white mt-1 font-mono">0 <span class="text-lg">km</span></h3>
+                            <span class="inline-flex items-center gap-1 text-[11px] text-emerald-400 mt-2 font-medium">
+                                <i data-lucide="route" class="w-3 h-3"></i> Road model: not detected
+                            </span>
+                        </div>
+                        <div class="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
+                            <i data-lucide="milestone" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition"></div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Detection Confidence</p>
+                            <h3 id="dash-confidence" class="text-3xl font-extrabold text-white mt-1 font-mono">0.0%</h3>
+                            <span class="inline-flex items-center gap-1 text-[11px] text-amber-400 mt-2 font-medium">
+                                <i data-lucide="alert-triangle" class="w-3 h-3"></i> Live QC result
+                            </span>
+                        </div>
+                        <div class="p-3 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20">
+                            <i data-lucide="cpu" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="glass-panel p-5 rounded-2xl border border-slate-800">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
+                                    Active Project: Sector-4 Urban Survey Drone Flight #842
+                                </h2>
+                                <p class="text-xs text-slate-400">Resolution: 2.5 cm/px (GSD) | Area: 1.8 km²</p>
+                            </div>
+                            <button onclick="switchTab('map')" class="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold flex items-center gap-2 transition">
+                                Open Interactive GIS Studio <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <div class="h-80 rounded-xl overflow-hidden border border-slate-800 relative" id="dashMiniMap"></div>
+                    </div>
+
+                    <div class="glass-panel p-5 rounded-2xl border border-slate-800">
+                        <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-purple-400"></i> Land Use & Feature Distribution
+                        </h3>
+                        <div class="h-56">
+                            <canvas id="landUseChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="glass-panel p-5 rounded-2xl border border-slate-800">
+                        <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="history" class="w-4 h-4 text-cyan-400"></i> Processed Aerial Surveys
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-300">
+                                        DS-09
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-white">Zone 4A Dense Commercial</p>
+                                        <p class="text-[10px] text-slate-400">420 Parcels • Mapped 2h ago</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-400 font-semibold">98.2% Conf</span>
+                            </div>
+
+                            <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-300">
+                                        DS-08
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-white">North Extension Slum Parcel</p>
+                                        <p class="text-[10px] text-slate-400">890 Parcels • Mapped Yesterday</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-400 font-semibold">91.4% Conf</span>
+                            </div>
+
+                            <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-300">
+                                        DS-07
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-white">Industrial Estate Outer</p>
+                                        <p class="text-[10px] text-slate-400">172 Parcels • Mapped 3 days ago</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-400 font-semibold">99.0% Conf</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i> AI Deep Learning Model Stack
+                        </h3>
+                        <div class="space-y-2 text-xs font-mono">
+                            <div class="flex justify-between text-slate-400">
+                                <span>Segmentation Model:</span>
+                                <span class="text-cyan-400">YOLOv8 Segmentation</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400">
+                                <span>Cadastral Regularization:</span>
+                                <span class="text-cyan-400">Polygon Vectorization</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400">
+                                <span>GSD Spatial Resolution:</span>
+                                <span class="text-emerald-400">0.025 m/px</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400">
+                                <span>CRSS Projection:</span>
+                                <span class="text-slate-200">Pixel coordinates (JPEG demo)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-upload" class="h-full overflow-y-auto p-6 hidden">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <div class="text-center space-y-2">
+                    <h1 class="text-2xl font-extrabold text-white">Upload High-Resolution Drone Imagery</h1>
+                    <p class="text-xs text-slate-400">Supports GeoTIFF, JPG/JPEG and PNG imagery for the ELARA AI demo</p>
+                </div>
+
+                <div id="drop-zone" class="glass-panel border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 rounded-3xl p-10 text-center cursor-pointer transition-all duration-300 relative group bg-cyan-950/10">
+                    <input type="file" id="fileInput" class="hidden" accept=".tif,.tiff,.jpg,.jpeg,.png" onchange="handleFileSelect(event)">
+                    
+                    <div class="flex flex-col items-center justify-center space-y-4">
+                        <div class="w-20 h-20 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/30 text-cyan-400 group-hover:scale-110 transition duration-300">
+                            <i data-lucide="cloud-lightning" class="w-10 h-10"></i>
+                        </div>
+                        <div>
+                            <p class="text-base font-bold text-white">Drag & drop orthophoto TIFF/JPG here</p>
+                            <p class="text-xs text-slate-400 mt-1">or click to browse from local workstation</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-full text-[10px] font-mono border border-slate-700">GeoTIFF</span>
+                            <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-full text-[10px] font-mono border border-slate-700">Sub-5cm GSD</span>
+                            <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-full text-[10px] font-mono border border-slate-700">Multi-Spectral</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="processing-card" class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4 hidden">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="file-cog" class="w-6 h-6 text-cyan-400"></i>
+                            <div>
+                                <p class="text-xs font-bold text-white" id="upload-filename">Sector_4B_Orthomosaic_2026.tif</p>
+                                <p class="text-[11px] text-slate-400">File Size: 842.5 MB • EPSG:3857 Detected</p>
+                            </div>
+                        </div>
+                        <span id="ai-stage-badge" class="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-xs font-mono font-bold">
+                            Initializing
+                        </span>
+                    </div>
+
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-mono text-slate-300">
+                            <span id="progress-step-text">Extracting Parcel Boundaries & Footprints...</span>
+                            <span id="progress-percent">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-900 rounded-full h-3 p-0.5 border border-slate-800">
+                            <div id="progress-bar" class="bg-gradient-to-r from-cyan-500 via-purple-500 to-emerald-400 h-2 rounded-full w-0 transition-all duration-300"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-4 gap-2 pt-2 text-center text-[10px]">
+                        <div id="step-1" class="p-2 rounded bg-slate-900 border border-slate-800 text-slate-500">1. Ortho Tiling</div>
+                        <div id="step-2" class="p-2 rounded bg-slate-900 border border-slate-800 text-slate-500">2. Boundary Segmentation</div>
+                        <div id="step-3" class="p-2 rounded bg-slate-900 border border-slate-800 text-slate-500">3. Building & Road Extraction</div>
+                        <div id="step-4" class="p-2 rounded bg-slate-900 border border-slate-800 text-slate-500">4. Topology Validation</div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Or Select Test Benchmark Drone Imagery (SIH Datasets)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <button onclick="runSamplePipeline('Urban High-Density Sector A', 840)" class="p-3 text-left rounded-xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 hover:border-cyan-500/40 transition group">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-white group-hover:text-cyan-400">Urban High-Density</span>
+                                <i data-lucide="play" class="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400"></i>
+                            </div>
+                            <p class="text-[10px] text-slate-400">Irregular parcels, narrow lanes, dense roofs</p>
+                        </button>
+
+                        <button onclick="runSamplePipeline('Peri-Urban Agricultural Boundary', 310)" class="p-3 text-left rounded-xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 hover:border-purple-500/40 transition group">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-white group-hover:text-purple-400">Agricultural Cadastral</span>
+                                <i data-lucide="play" class="w-3.5 h-3.5 text-slate-500 group-hover:text-purple-400"></i>
+                            </div>
+                            <p class="text-[10px] text-slate-400">Large plots, tree shadows, stream boundaries</p>
+                        </button>
+
+                        <button onclick="runSamplePipeline('Industrial Zone Sector 12', 190)" class="p-3 text-left rounded-xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/40 transition group">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-white group-hover:text-emerald-400">Industrial & Commercial</span>
+                                <i data-lucide="play" class="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400"></i>
+                            </div>
+                            <p class="text-[10px] text-slate-400">Large warehouse footprints & wide transit roads</p>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-map" class="h-full relative hidden flex flex-col">
+            <div class="absolute top-4 left-4 z-[500] flex flex-wrap gap-2">
+                <div class="glass-panel p-2 rounded-xl flex items-center gap-2 border border-slate-800 shadow-xl">
+                    <button onclick="toggleLayer('parcels')" id="btn-toggle-parcels" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Parcels
+                    </button>
+                    <button onclick="toggleLayer('buildings')" id="btn-toggle-buildings" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span> Buildings
+                    </button>
+                    <button onclick="toggleLayer('roads')" id="btn-toggle-roads" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Roads
+                    </button>
+                    <button onclick="toggleLayer('errors')" id="btn-toggle-errors" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/40 flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse"></span> Errors (<span id="map-error-count">0</span>)
+                    </button>
+                </div>
+
+                <div class="glass-panel p-1.5 rounded-xl flex items-center border border-slate-800">
+                    <button onclick="toggleSplitScreen()" id="btn-split" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:bg-slate-800 flex items-center gap-1.5 transition">
+                        <i data-lucide="columns" class="w-3.5 h-3.5 text-cyan-400"></i> AI Split View
+                    </button>
+                </div>
+            </div>
+
+            <div id="feature-inspector" class="absolute top-4 right-4 z-[500] w-80 glass-panel p-5 rounded-2xl border border-slate-800 hidden transition-all duration-300 shadow-2xl">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                    <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                        <i data-lucide="info" class="w-4 h-4 text-cyan-400"></i> Feature Inspector
+                    </h3>
+                    <button onclick="closeInspector()" class="text-slate-400 hover:text-white">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                
+                <div id="inspector-content" class="space-y-3 text-xs">
+                    </div>
+            </div>
+
+            <div id="mainMap" class="w-full h-full z-10"></div>
+
+<div class="absolute top-16 left-4 z-[500] px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-700 text-[10px] text-slate-300 shadow-lg">
+                AI preview uses image pixel coordinates for non-georeferenced JPG/PNG.
+            </div>
+
+                        <!-- REAL YOLO RESULT PREVIEW
+                 JPEG/PNG AI coordinates are pixel coordinates,
+                 so they are visualized over the original image
+                 instead of being falsely plotted as latitude/longitude. -->
+            <div id="ai-result-panel"
+                 class="absolute bottom-4 left-4 z-[600] hidden w-[440px] max-w-[calc(100%-2rem)] glass-panel rounded-2xl border border-purple-500/30 shadow-2xl overflow-hidden">
+
+                <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                    <div>
+                        <p class="text-xs font-bold text-white">ELARA AI EXTRACTION</p>
+                        <p id="ai-result-info" class="text-[10px] text-slate-400">
+                            Building detection preview
+                        </p>
+                    </div>
+
+                    <span class="px-2 py-1 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono">
+                        YOLO SEGMENTATION
+                    </span>
+                </div>
+
+                <div class="p-3 bg-black/30">
+                    <canvas id="ai-result-canvas"
+                            class="w-full rounded-lg border border-slate-800">
+                    </canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-validation" class="h-full overflow-y-auto p-6 hidden">
+            <div class="max-w-6xl mx-auto space-y-6">
+                <div>
+                    <h1 class="text-2xl font-extrabold text-white">Topology Consistency & QC Matrix</h1>
+                    <p class="text-xs text-slate-400">Automated GIS rules check for overlapping parcels, self-intersections, and unaligned road boundaries</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i> Flagged Spatial Inconsistencies (<span id="qc-count">0</span>)
+                            </h2>
+                            <button onclick="triggerNotification('Auto-Snapping Topologically Corrected 12 Boundaries', 'success')" class="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold hover:bg-emerald-500/30 transition">
+                                Auto-Repair Snapping
+                            </button>
+                        </div>
+
+                        <div class="space-y-3">
+                            
+
+                                </div>
+                                
+                                
+                            </div>
+
+                           
+                            
+                
+
+                    <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i> Rules Engine Check
+                        </h3>
+
+                        <div class="space-y-3 text-xs">
+
+    <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <span class="text-slate-300">Polygon Overlap Check</span>
+        <span id="qc-overlap-status"
+              class="px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 border border-slate-500/30 text-[10px]">
+            Waiting
+        </span>
+    </div>
+
+    <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <span class="text-slate-300">Geometry Validity</span>
+        <span id="qc-geometry-status"
+              class="px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 border border-slate-500/30 text-[10px]">
+            Waiting
+        </span>
+    </div>
+
+    <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <span class="text-slate-300">Building Detection</span>
+        <span id="qc-building-status"
+              class="px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 border border-slate-500/30 text-[10px]">
+            Waiting
+        </span>
+    </div>
+
+    <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <span class="text-slate-300">Edge Detection</span>
+        <span id="qc-edge-status"
+              class="px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 border border-slate-500/30 text-[10px]">
+            Waiting
+        </span>
+    </div>
+
+</div>
+
+                        <div class="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs text-cyan-200">
+                            <p class="font-bold flex items-center gap-1 mb-1">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> AI Auto-Sanitization
+                            </p>
+                            ELARA automatically converts deep learning raster outputs into clean vector polygons using Douglas-Peucker simplification and snap-to-grid topology rules.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-export" class="h-full overflow-y-auto p-6 hidden">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <div>
+                    <h1 class="text-2xl font-extrabold text-white">Export GIS Layers & Cadastral Reports</h1>
+                    <p class="text-xs text-slate-400">Download industry-standard vector formats compliant with NIC, SWAMITVA & OGC standards</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4 hover:border-cyan-500/40 transition">
+                        <div class="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                            <i data-lucide="file-json" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white">GeoJSON Vector</h3>
+                            <p class="text-xs text-slate-400 mt-1">Lightweight vector format suitable for web GIS apps & QGIS integration.</p>
+                        </div>
+                        <button onclick="downloadExport('GeoJSON')" class="w-full py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition flex items-center justify-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download GeoJSON
+                        </button>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4 hover:border-purple-500/40 transition">
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
+                            <i data-lucide="folder-archive" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white">ESRI Shapefile (.zip)</h3>
+                            <p class="text-xs text-slate-400 mt-1">Includes .shp, .shx, .dbf attribute tables formatted for ArcGIS desktop.</p>
+                        </div>
+                        <button onclick="downloadExport('ESRI Shapefile')" class="w-full py-2.5 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-500 transition flex items-center justify-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download Shapefile
+                        </button>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4 hover:border-emerald-500/40 transition">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+                            <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white">Cadastral Register (CSV)</h3>
+                            <p class="text-xs text-slate-400 mt-1">Tabular land parcel record with calculated area (m²), perimeter, & coordinates.</p>
+                        </div>
+                        <button onclick="downloadExport('Cadastral CSV')" class="w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition flex items-center justify-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download CSV Ledger
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i> Coordinate Reference System & Export Settings
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Target CRS Projection</label>
+                            <select class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500">
+                                <option>EPSG:4326 - WGS 84 (Global Standard)</option>
+                                <option>EPSG:3857 - Web Mercator</option>
+                                <option>EPSG:32643 - UTM Zone 43N (India Region)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-slate-400 mb-1">Included Layers</label>
+                            <div class="flex gap-4 pt-2">
+                                <label class="flex items-center gap-2 text-white"><input type="checkbox" checked class="rounded accent-cyan-500"> Parcels</label>
+                                <label class="flex items-center gap-2 text-white"><input type="checkbox" checked class="rounded accent-purple-500"> Buildings</label>
+                                <label class="flex items-center gap-2 text-white"><input type="checkbox" checked class="rounded accent-emerald-500"> Roads</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="toast" class="fixed bottom-6 right-6 z-[999] glass-panel px-4 py-3 rounded-xl border border-cyan-500/40 text-cyan-300 text-xs font-medium shadow-2xl flex items-center gap-2 translate-y-20 opacity-0 transition-all duration-300">
+        <i data-lucide="check-circle" class="w-4 h-4 text-cyan-400"></i>
+        <span id="toast-message">Notification message</span>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Application State
+        let currentTab = 'dashboard';
+        let mainMap = null;
+        let miniMap = null;
+        let mapLayers = {
+            parcels: null,
+            buildings: null,
+            roads: null,
+            errors: null
+        };
+        let activeLayersState = { parcels: true, buildings: true, roads: true, errors: true };
+
+        // Sample GIS GeoJSON Datasets for Delhi Urban Area
+        const sampleGeoData = {
+            parcels: {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": { "id": "PARCEL-101", "owner": "Government Land", "area": "542 m²", "landuse": "Public Infrastructure", "confidence": "98.5%" },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[77.2085, 28.6135], [77.2095, 28.6136], [77.2094, 28.6128], [77.2084, 28.6127], [77.2085, 28.6135]]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": { "id": "PARCEL-102", "owner": "Private Residential", "area": "310 m²", "landuse": "Residential High Density", "confidence": "96.2%" },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[77.2096, 28.6136], [77.2105, 28.6137], [77.2104, 28.6129], [77.2095, 28.6128], [77.2096, 28.6136]]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": { "id": "PARCEL-103", "owner": "Commercial Corp", "area": "890 m²", "landuse": "Commercial Sector", "confidence": "99.1%" },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[77.2084, 28.6126], [77.2104, 28.6127], [77.2102, 28.6118], [77.2082, 28.6117], [77.2084, 28.6126]]]
+                        }
+                    }
+                ]
+            },
+            buildings: {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": { "id": "BLDG-401", "height": "14m", "floors": 4, "type": "Concrete Structured" },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[77.2087, 28.6133], [77.2092, 28.6134], [77.2091, 28.6130], [77.2086, 28.6129], [77.2087, 28.6133]]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": { "id": "BLDG-402", "height": "8m", "floors": 2, "type": "Residential Complex" },
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[77.2098, 28.6134], [77.2102, 28.6135], [77.2101, 28.6131], [77.2097, 28.6130], [77.2098, 28.6134]]]
+                        }
+                    }
+                ]
+            },
+            roads: {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": { "id": "ROAD-01", "name": "Sector Main Arterial", "width": "12 meters" },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[77.2078, 28.6140], [77.2110, 28.6141], [77.2112, 28.6112]]
+                        }
+                    }
+                ]
+            }
+        };
+
+        // Navigation Switcher Logic
+        function switchTab(tabId) {
+            document.querySelectorAll('section[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-cyan-400', 'bg-cyan-950/40', 'border', 'border-cyan-500/30');
+                btn.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeNav = document.getElementById(`nav-${tabId}`);
+            if(activeNav) {
+                activeNav.classList.add('active', 'text-cyan-400', 'bg-cyan-950/40', 'border', 'border-cyan-500/30');
+                activeNav.classList.remove('text-slate-400');
+            }
+
+            currentTab = tabId;
+
+            if (tabId === 'map' && mainMap) {
+                setTimeout(() => { mainMap.invalidateSize(); }, 200);
+            }
+        }
+
+        // Initialize Leaflet Maps
+        function initGIS() {
+            // Dashboard Mini Map
+            miniMap = L.map('dashMiniMap', { zoomControl: false, dragging: false }).setView([28.6128, 77.2090], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(miniMap);
+            L.geoJSON(sampleGeoData.parcels, { style: { color: '#00f2fe', weight: 2, fillOpacity: 0.2 } }).addTo(miniMap);
+
+            // Centerpiece Full Interactive Map Studio
+            mainMap = L.map('mainMap', { zoomControl: true }).setView([28.6128, 77.2090], 17);
+
+            // High Resolution Esri World Imagery Basemap
+            const satelliteTile = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Drone Orthophoto Resolution 2.5cm'
+            }).addTo(mainMap);
+
+            // Add Vector Layers with Futuristic Styling
+            mapLayers.parcels = L.geoJSON(sampleGeoData.parcels, {
+                style: { color: '#00f2fe', weight: 2.5, fillColor: '#00f2fe', fillOpacity: 0.15 },
+                onEachFeature: onEachFeatureClick
+            }).addTo(mainMap);
+
+            mapLayers.buildings = L.geoJSON(sampleGeoData.buildings, {
+                style: { color: '#a855f7', weight: 2, fillColor: '#7c3aed', fillOpacity: 0.4 },
+                onEachFeature: onEachFeatureClick
+            }).addTo(mainMap);
+
+            mapLayers.roads = L.geoJSON(sampleGeoData.roads, {
+                style: { color: '#10b981', weight: 5, opacity: 0.8 },
+                onEachFeature: onEachFeatureClick
+            }).addTo(mainMap);
+
+            // Initialize Geoman Editing Tools on Map
+            mainMap.pm.addControls({
+                position: 'topleft',
+                drawCircleMarker: false,
+                rotateMode: false,
+            });
+            mainMap.pm.setGlobalOptions({ stroke: true, color: '#00f2fe' });
+
+            mainMap.on('pm:create', (e) => {
+                triggerNotification('Custom Land Parcel Layer Vectorized & Saved', 'success');
+            });
+        }
+
+        // Map Click Inspector Action
+        function onEachFeatureClick(feature, layer) {
+            layer.on('click', (e) => {
+                const props = feature.properties;
+                const inspector = document.getElementById('feature-inspector');
+                const content = document.getElementById('inspector-content');
+
+                let html = `<div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                                <span class="text-slate-400 block text-[10px]">Feature ID</span>
+                                <span class="text-cyan-400 font-bold font-mono text-sm">${props.id}</span>
+                            </div>`;
+
+                for (let key in props) {
+                    if (key !== 'id') {
+                        html += `<div class="flex justify-between py-1 border-b border-slate-800">
+                                    <span class="text-slate-400 capitalize">${key}:</span>
+                                    <span class="text-white font-medium">${props[key]}</span>
+                                 </div>`;
+                    }
+                }
+
+                html += `<div class="pt-2 flex gap-2">
+                            <button onclick="triggerNotification('Feature Attributes Saved', 'success')" class="w-full py-1.5 bg-cyan-500/20 text-cyan-300 rounded border border-cyan-500/30 text-[11px] font-bold">Edit Attributes</button>
+                         </div>`;
+
+                content.innerHTML = html;
+                inspector.classList.remove('hidden');
+            });
+        }
+
+        function closeInspector() {
+            document.getElementById('feature-inspector').classList.add('hidden');
+        }
+
+        // Toggle Vector Layers Visibility
+        function toggleLayer(layerName) {
+            activeLayersState[layerName] = !activeLayersState[layerName];
+            const btn = document.getElementById(`btn-toggle-${layerName}`);
+
+            if (activeLayersState[layerName]) {
+                mainMap.addLayer(mapLayers[layerName]);
+                btn.classList.remove('opacity-40');
+            } else {
+                mainMap.removeLayer(mapLayers[layerName]);
+                btn.classList.add('opacity-40');
+            }
+        }
+
+        // ============================================================
+        // REAL ELARA BACKEND INTEGRATION
+        // ============================================================
+        const API_BASE = "http://127.0.0.1:5000/api/v1";
+        let latestResult = null;
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processRealFile(files[0]);
+            }
+        }
+
+        async function processRealFile(file) {
+            console.log("🔥 PROCESS REAL FILE STARTED", file.name);
+            switchTab('upload');
+
+            const card = document.getElementById('processing-card');
+            const bar = document.getElementById('progress-bar');
+            const percent = document.getElementById('progress-percent');
+            const stepText = document.getElementById('progress-step-text');
+            const filename = document.getElementById('upload-filename');
+
+            filename.innerText = file.name;
+            card.classList.remove('hidden');
+
+            try {
+                bar.style.width = '10%';
+                percent.innerText = '10%';
+                stepText.innerText = 'Uploading imagery to ELARA backend...';
+                highlightStep(1);
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const uploadResponse = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const uploadData = await uploadResponse.json();
+
+                if (!uploadResponse.ok || uploadData.status !== 'uploaded') {
+                    throw new Error(uploadData.error || 'Upload failed');
+                }
+
+                bar.style.width = '35%';
+                percent.innerText = '35%';
+                stepText.innerText = 'Running YOLO segmentation model...';
+                highlightStep(2);
+
+                const analyzeResponse = await fetch(`${API_BASE}/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filepath: uploadData.filepath })
+                });
+
+                const result = await analyzeResponse.json();
+
+                if (!analyzeResponse.ok || result.status !== 'processed') {
+                    throw new Error(result.error || result.details || 'Inference failed');
+                }
+
+                latestResult = result;
+
+sessionStorage.setItem(
+    'elaraLatestResult',
+    JSON.stringify(result)
+);
+console.log("🔥 STORAGE TEST RAN");
+
+sessionStorage.setItem(
+    'elaraUploadedFileName',
+    file.name
+);
+
+console.log('ELARA RESULT SAVED:', latestResult);
+
+                console.log('ELARA REAL RESULT:', result);
+                console.log('ELARA GEOJSON:', result.geojson);
+                console.log('ELARA BUILDINGS:', result.summary?.buildings || 0);
+
+                showAIResultPreview(file, result);
+
+                bar.style.width = '70%';
+                percent.innerText = '70%';
+                stepText.innerText = 'Converting YOLO masks into vector features...';
+                highlightStep(3);
+
+                updateDashboardFromResult(result);
+
+                bar.style.width = '90%';
+                percent.innerText = '90%';
+                stepText.innerText = 'Running topology & quality-control checks...';
+                highlightStep(4);
+
+                updateQCFromResult(result);
+
+                bar.style.width = '100%';
+                percent.innerText = '100%';
+                stepText.innerText = 'ELARA AI processing complete.';
+
+                triggerNotification(
+                    `AI Extraction Complete! ${result.summary.buildings} buildings detected. QC: ${result.summary.qc_anomalies} anomalies.`,
+                    'success'
+                );
+
+                triggerNotification(
+    `AI processing complete — ${result.summary.buildings} buildings detected.`,
+    'success'
+);
+
+            } catch (error) {
+                console.error('ELARA processing error:', error);
+                stepText.innerText = `Processing failed: ${error.message}`;
+                triggerNotification(`ELARA error: ${error.message}`, 'error');
+            }
+        }
+
+        // ============================================================
+        // REAL YOLO IMAGE PREVIEW
+        // ============================================================
+        // YOLO masks returned for JPEG/PNG are in image pixel coordinates.
+        // This canvas draws those real masks directly over the uploaded image.
+        // We do NOT pretend those pixels are latitude/longitude.
+        
+        function showAIResultPreview(file, result) {
+    const panel = document.getElementById('ai-result-panel');
+    const canvas = document.getElementById('ai-result-canvas');
+    const info = document.getElementById('ai-result-info');
+
+    if (!panel || !canvas) {
+        console.warn('ELARA AI preview elements not found.');
+        return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = function () {
+        // Match canvas to the original image dimensions
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+
+        // Draw original drone image
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0);
+
+        const detections = result.features?.detections || [];
+
+        let buildingCount = 0;
+
+        detections.forEach((detection) => {
+            if (detection.class_name !== 'building') return;
+
+            const points = detection.polygon_pixels;
+
+            if (!points || points.length < 3) return;
+
+            buildingCount++;
+
+            ctx.beginPath();
+
+            points.forEach(([x, y], index) => {
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.closePath();
+
+            // Building mask
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
+            ctx.fill();
+
+            // Building boundary
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        });
+
+        info.innerText =
+            `${buildingCount} building masks detected • YOLO segmentation`;
+
+        panel.classList.remove('hidden');
+
+        URL.revokeObjectURL(objectUrl);
+    };
+
+    image.onerror = function () {
+        console.error('ELARA could not load the uploaded image preview.');
+        URL.revokeObjectURL(objectUrl);
+    };
+
+    image.src = objectUrl;
+}
+
+        function updateDashboardFromResult(result) {
+            const summary = result.summary || {};
+
+            document.getElementById('dash-parcels').innerText =
+                Number(summary.parcels || 0).toLocaleString();
+
+            document.getElementById('dash-buildings').innerText =
+                Number(summary.buildings || 0).toLocaleString();
+
+            document.getElementById('dash-roads').innerHTML =
+                `${Number(summary.roads || 0).toLocaleString()} <span class="text-lg">km</span>`;
+
+            document.getElementById('dash-confidence').innerText =
+                `${(Number(summary.overall_confidence || 0) * 100).toFixed(1)}%`;
+
+            const errorCount = Number(summary.qc_anomalies || 0);
+            const errorElement = document.getElementById('map-error-count');
+            if (errorElement) errorElement.innerText = errorCount;
+
+            const qcElement = document.getElementById('qc-count');
+            if (qcElement) qcElement.innerText = errorCount;
+        }
+
+function updateQCFromResult(result) {
+    const qc = result.quality_control || {};
+    const anomalies = Array.isArray(qc.anomalies) ? qc.anomalies : [];
+
+    console.log("ELARA Quality Control:", qc);
+
+    const errorCount = anomalies.length;
+
+    const errorElement = document.getElementById("map-error-count");
+    const qcCount = document.getElementById("qc-count");
+
+    if (errorElement) {
+        errorElement.innerText = errorCount;
+    }
+
+    if (qcCount) {
+        qcCount.innerText = errorCount;
+    }
+
+    const summary = result.summary || {};
+
+    const buildings = Number(summary.buildings || 0);
+    const edges = Number(summary.edges || 0);
+
+    const overlapElement =
+        document.getElementById("qc-overlap-status");
+
+    const geometryElement =
+        document.getElementById("qc-geometry-status");
+
+    const buildingElement =
+        document.getElementById("qc-building-status");
+
+    const edgeElement =
+        document.getElementById("qc-edge-status");
+
+    if (overlapElement) {
+        overlapElement.innerText =
+            anomalies.length === 0
+                ? "Passed"
+                : `${anomalies.length} Warning${anomalies.length > 1 ? "s" : ""}`;
+    }
+
+    if (geometryElement) {
+        geometryElement.innerText =
+            anomalies.length === 0
+                ? "Passed"
+                : "Review Required";
+    }
+
+    if (buildingElement) {
+        buildingElement.innerText =
+            buildings > 0
+                ? `${buildings} Detected`
+                : "No Detections";
+    }
+
+    if (edgeElement) {
+        edgeElement.innerText =
+            edges > 0
+                ? `${edges} Detected`
+                : "No Detections";
+    }
+
+    console.log("QC UI UPDATED");
+}
+
+        // Allow clicking the drop-zone itself to open the file picker.
+        function initDropZone() {
+            const zone = document.getElementById('drop-zone');
+            const input = document.getElementById('fileInput');
+
+            zone.addEventListener('click', (e) => {
+                if (e.target !== input) input.click();
+            });
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('border-cyan-300', 'bg-cyan-950/30');
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('border-cyan-300', 'bg-cyan-950/30');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('border-cyan-300', 'bg-cyan-950/30');
+
+                const file = e.dataTransfer.files[0];
+                if (file) processRealFile(file);
+            });
+        }
+
+        function highlightStep(stepNum) {
+            for(let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`step-${i}`);
+                if (i <= stepNum) {
+                    el.classList.add('bg-cyan-950', 'text-cyan-300', 'border-cyan-500/40');
+                    el.classList.remove('bg-slate-900', 'text-slate-500');
+                }
+            }
+        }
+
+        // Notification Toast Handler
+        function triggerNotification(msg, type) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            toastMsg.innerText = msg;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        async function downloadExport(format) {
+            if (!latestResult || !latestResult.geojson) {
+                triggerNotification('Please run AI processing before exporting.', 'info');
+                return;
+            }
+
+            const formatMap = {
+                'GeoJSON': 'geojson',
+                'ESRI Shapefile': 'shapefile',
+                'Cadastral CSV': 'csv'
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/export`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        format: formatMap[format] || 'geojson',
+                        geojson: latestResult.geojson
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Export failed');
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download =
+                    formatMap[format] === 'csv'
+                        ? 'ELARA_Cadastral_Export.csv'
+                        : formatMap[format] === 'shapefile'
+                            ? 'ELARA_Cadastral_Export.zip'
+                            : 'ELARA_Cadastral_Export.geojson';
+
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+
+                triggerNotification(`${format} exported successfully.`, 'success');
+            } catch (error) {
+                console.error('ELARA export error:', error);
+                triggerNotification(`Export failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize Analytics Chart
+        function initCharts() {
+            const ctx = document.getElementById('landUseChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Residential', 'Commercial', 'Roads/Transit', 'Public Sector', 'Vacant Plot'],
+                    datasets: [{
+                        label: 'Area (Sq Meters)',
+                        data: [14200, 8900, 6400, 4100, 2300],
+                        backgroundColor: [
+                            'rgba(0, 242, 254, 0.6)',
+                            'rgba(124, 58, 237, 0.6)',
+                            'rgba(16, 185, 129, 0.6)',
+                            'rgba(245, 158, 11, 0.6)',
+                            'rgba(148, 163, 184, 0.6)'
+                        ],
+                        borderColor: [
+                            '#00f2fe',
+                            '#7c3aed',
+                            '#10b981',
+                            '#f59e0b',
+                            '#94a3b8'
+                        ],
+                        borderWidth: 1.5,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        // Window Load Initialization
+        window.addEventListener('load', () => {
+
+    initGIS();
+    initCharts();
+    initDropZone();
+
+    // Restore the latest ELARA AI result after refresh
+    const savedResult = sessionStorage.getItem('elaraLatestResult');
+
+    if (savedResult) {
+
+        try {
+
+            latestResult = JSON.parse(savedResult);
+
+            updateDashboardFromResult(latestResult);
+            updateQCFromResult(latestResult);
+
+            console.log(
+                'ELARA restored previous result:',
+                latestResult.summary
+            );
+
+        } catch (error) {
+
+            console.error(
+                'Could not restore ELARA result:',
+                error
+            );
+
+            sessionStorage.removeItem('elaraLatestResult');
+        }
+    }
+});
+    </script>
+</body>
+</html>
